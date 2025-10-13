@@ -3,3 +3,5 @@
 .agdocs/
 trees/
 .aider*
+
+.env
