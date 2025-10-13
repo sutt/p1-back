@@ -7,7 +7,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select
 
 from database import engine, Base, get_db
 from models import Shape
@@ -63,24 +63,10 @@ async def get_shapes(db: AsyncSession = Depends(get_db)):
 
 @app.post("/shapes")
 async def create_or_update_shapes(request: ShapesUpdateRequest, db: AsyncSession = Depends(get_db)):
-    """Deletes all existing shapes and creates new ones from the provided list."""
-    await db.execute(delete(Shape))
+    """Creates new shapes or updates existing ones from the provided list."""
+    for s in request.data:
+        db.merge(Shape(**s.dict()))
 
-    new_shapes = [
-        Shape(
-            id=s.id,
-            type=s.type,
-            x=s.x,
-            y=s.y,
-            width=s.width,
-            height=s.height,
-            radius=s.radius,
-            selectedBy=s.selectedBy,
-        )
-        for s in request.data
-    ]
-
-    db.add_all(new_shapes)
     await db.commit()
 
     return {"message": "Shapes updated successfully"}
