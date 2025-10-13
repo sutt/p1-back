@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from database import engine, Base, get_db
 from models import Shape
+from seed import seed_data
 
 load_dotenv()
 
@@ -70,6 +71,13 @@ async def create_or_update_shapes(request: ShapesUpdateRequest, db: AsyncSession
     await db.commit()
 
     return {"message": "Shapes updated successfully"}
+
+
+@app.post("/reset_data")
+async def reset_data():
+    """Resets the database to the initial seed data."""
+    await seed_data()
+    return {"message": "Data reset successfully"}
 
 
 def main():
