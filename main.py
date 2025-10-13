@@ -1,12 +1,30 @@
 import os
 import uvicorn
+import logging
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from database import engine, Base, get_db
+from models import Shape
 
 load_dotenv()
 
 app = FastAPI()
+
+logger = logging.getLogger(__name__)
+
+@app.on_event("startup")
+async def on_startup():
+    try:
+        async with engine.begin() as conn:
+            # await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database connection successful and tables created.")
+    except Exception as e:
+        logger.error(f"Database connection failed: {e}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -16,14 +34,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-shapes = [
-    {'id': 'rect1', 'type': 'rectangle', 'x': 100, 'y': 100, 'width': 300, 'height': 200, 'selectedBy': []},
-    {'id': 'circ1', 'type': 'circle', 'x': 600, 'y': 400, 'radius': 100, 'selectedBy': ['User2']},
-]
-
 @app.get("/shapes")
-async def get_shapes():
+async def get_shapes(db: AsyncSession = Depends(get_db)):
     """Returns the list of shapes."""
+    result = await db.execute(select(Shape))
+    shapes = result.scalars().all()
     return shapes
 
 def main():
