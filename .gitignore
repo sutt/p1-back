@@ -2,3 +2,4 @@
 # Agro project directory
 .agdocs/
 trees/
+.aider*
