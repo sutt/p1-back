@@ -65,7 +65,7 @@ async def get_shapes(db: AsyncSession = Depends(get_db)):
 async def create_or_update_shapes(request: ShapesUpdateRequest, db: AsyncSession = Depends(get_db)):
     """Creates new shapes or updates existing ones from the provided list."""
     for s in request.data:
-        db.merge(Shape(**s.dict()))
+        await db.merge(Shape(**s.dict()))
 
     await db.commit()
 
