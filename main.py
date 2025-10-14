@@ -54,7 +54,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/shapes")
+@app.get("/api/shapes")
 async def get_shapes(db: AsyncSession = Depends(get_db)):
     """Returns the list of shapes."""
     result = await db.execute(select(Shape))
@@ -62,7 +62,7 @@ async def get_shapes(db: AsyncSession = Depends(get_db)):
     return shapes
 
 
-@app.post("/shapes")
+@app.post("/api/shapes")
 async def create_or_update_shapes(request: ShapesUpdateRequest, db: AsyncSession = Depends(get_db)):
     """Creates new shapes or updates existing ones from the provided list."""
     for s in request.data:
@@ -73,7 +73,7 @@ async def create_or_update_shapes(request: ShapesUpdateRequest, db: AsyncSession
     return {"message": "Shapes updated successfully"}
 
 
-@app.post("/reset_data")
+@app.post("/api/reset_data")
 async def reset_data():
     """Resets the database to the initial seed data."""
     await seed_data()
