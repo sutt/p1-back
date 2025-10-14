@@ -1,0 +1,1 @@
+add a /reset_data route which is it's hit, will re-seed the DB to the two records hard-coded in the seed.py

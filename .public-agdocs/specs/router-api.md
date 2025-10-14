@@ -1,0 +1,1 @@
+in main.py, update this app to have all urls point to /api/<rest-of-url>
