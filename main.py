@@ -63,6 +63,10 @@ class UserOnlineResponse(BaseModel):
     created_at: datetime.datetime
 
 
+class UserResponse(BaseModel):
+    username: str
+
+
 logger = logging.getLogger(__name__)
 
 @app.on_event("startup")
@@ -119,6 +123,12 @@ async def signup(user: auth.UserCreate, db: AsyncSession = Depends(get_db)):
     db.add(new_user)
     await db.commit()
     return {"message": "User created successfully"}
+
+
+@app.get("/api/me", response_model=UserResponse)
+async def read_users_me(current_user: User = Depends(auth.get_current_user)):
+    """Returns the current user's username."""
+    return {"username": current_user.username}
 
 
 @app.get("/api/shapes")
