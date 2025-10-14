@@ -1,7 +1,9 @@
 import os
 import uvicorn
 import logging
-from typing import List, Optional
+import datetime
+import asyncio
+from typing import List, Optional, Dict
 from dotenv import load_dotenv
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +16,22 @@ from models import Shape
 from seed import seed_data
 
 load_dotenv()
+
+
+# In-memory store for online users
+HEARTBEAT_POLL_INTERVAL = 5  # seconds
+GRACE_PERIOD = 5  # seconds
+
+
+class UserStatus(BaseModel):
+    userName: str
+    created_at: datetime.datetime
+    modified_at: datetime.datetime
+
+
+online_users: Dict[str, UserStatus] = {}
+online_users_lock = asyncio.Lock()
+
 
 app = FastAPI()
 
@@ -32,6 +50,15 @@ class ShapeModel(BaseModel):
 class ShapesUpdateRequest(BaseModel):
     user: str
     data: List[ShapeModel]
+
+
+class UserOnlineRequest(BaseModel):
+    userName: str
+
+
+class UserOnlineResponse(BaseModel):
+    userName: str
+    created_at: datetime.datetime
 
 
 logger = logging.getLogger(__name__)
@@ -71,6 +98,56 @@ async def create_or_update_shapes(request: ShapesUpdateRequest, db: AsyncSession
     await db.commit()
 
     return {"message": "Shapes updated successfully"}
+
+
+def _get_and_prune_online_users() -> List[UserOnlineResponse]:
+    """
+    Prunes stale users and returns a sorted list of online users.
+    This function is not thread-safe and should be called within a lock.
+    """
+    now = datetime.datetime.utcnow()
+    stale_users = [
+        userName
+        for userName, user_status in online_users.items()
+        if (
+            now - user_status.modified_at
+            > datetime.timedelta(seconds=HEARTBEAT_POLL_INTERVAL + GRACE_PERIOD)
+        )
+    ]
+
+    for userName in stale_users:
+        del online_users[userName]
+
+    sorted_users = sorted(online_users.values(), key=lambda u: u.created_at)
+    return [
+        UserOnlineResponse(userName=u.userName, created_at=u.created_at)
+        for u in sorted_users
+    ]
+
+
+@app.get("/api/user_online", response_model=List[UserOnlineResponse])
+async def get_online_users():
+    """Returns the list of currently online users."""
+    async with online_users_lock:
+        return _get_and_prune_online_users()
+
+
+@app.post("/api/user_online", response_model=List[UserOnlineResponse])
+async def user_heartbeat(request: UserOnlineRequest):
+    """Registers a user heartbeat and returns the list of currently online users."""
+    async with online_users_lock:
+        now = datetime.datetime.utcnow()
+        userName = request.userName
+        if userName not in online_users:
+            online_users[userName] = UserStatus(
+                userName=userName,
+                created_at=now,
+                modified_at=now,
+            )
+        else:
+            online_users[userName].modified_at = now
+
+        return _get_and_prune_online_users()
 
 
 @app.post("/api/reset_data")
