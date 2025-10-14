@@ -5,14 +5,16 @@ import datetime
 import asyncio
 from typing import List, Optional, Dict
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+import auth
 from database import engine, Base, get_db
-from models import Shape
+from models import Shape, User
 from seed import seed_data
 
 load_dotenv()
@@ -81,7 +83,46 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# Frontend should store the token (e.g., in localStorage) and send it in the
+# Authorization header for subsequent requests to protected routes.
+# Example: Authorization: Bearer <token>
+@app.post("/api/login", response_model=auth.Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
+    """
+    Logs in a user and returns an access token.
+    After successful login, the frontend should redirect to the /canvas route.
+    """
+    user = await auth.get_user(db, username=form_data.username)
+    if not user or not auth.verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = datetime.timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = auth.create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.post("/api/signup")
+async def signup(user: auth.UserCreate, db: AsyncSession = Depends(get_db)):
+    """Creates a new user."""
+    db_user = await auth.get_user(db, username=user.username)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Username already registered")
+    
+    hashed_password = auth.get_password_hash(user.password)
+    new_user = User(username=user.username, hashed_password=hashed_password)
+    db.add(new_user)
+    await db.commit()
+    return {"message": "User created successfully"}
+
+
 @app.get("/api/shapes")
+# TODO: Protect this route. Requires authentication.
 async def get_shapes(db: AsyncSession = Depends(get_db)):
     """Returns the list of shapes."""
     result = await db.execute(select(Shape))
@@ -90,6 +131,7 @@ async def get_shapes(db: AsyncSession = Depends(get_db)):
 
 
 @app.post("/api/shapes")
+# TODO: Protect this route. Requires authentication.
 async def create_or_update_shapes(request: ShapesUpdateRequest, db: AsyncSession = Depends(get_db)):
     """Creates new shapes or updates existing ones from the provided list."""
     for s in request.data:
@@ -126,6 +168,7 @@ def _get_and_prune_online_users() -> List[UserOnlineResponse]:
 
 
 @app.get("/api/user_online", response_model=List[UserOnlineResponse])
+# TODO: Protect this route. Requires authentication.
 async def get_online_users():
     """Returns the list of currently online users."""
     async with online_users_lock:
@@ -133,6 +176,7 @@ async def get_online_users():
 
 
 @app.post("/api/user_online", response_model=List[UserOnlineResponse])
+# TODO: Protect this route. Requires authentication.
 async def user_heartbeat(request: UserOnlineRequest):
     """Registers a user heartbeat and returns the list of currently online users."""
     async with online_users_lock:
@@ -151,6 +195,7 @@ async def user_heartbeat(request: UserOnlineRequest):
 
 
 @app.post("/api/reset_data")
+# TODO: Protect this route. Requires authentication.
 async def reset_data():
     """Resets the database to the initial seed data."""
     await seed_data()
