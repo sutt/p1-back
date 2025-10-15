@@ -21,4 +21,5 @@ class Shape(Base):
     width = Column(Integer, nullable=True)
     height = Column(Integer, nullable=True)
     radius = Column(Integer, nullable=True)
+    text = Column(String, nullable=True)
     selectedBy = Column(ARRAY(String), nullable=False, server_default="{}")

@@ -46,6 +46,7 @@ class ShapeModel(BaseModel):
     width: Optional[int] = None
     height: Optional[int] = None
     radius: Optional[int] = None
+    text: Optional[str] = None
     selectedBy: List[str] = []
 
 

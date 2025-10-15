@@ -16,6 +16,7 @@ async def seed_data():
         shapes_data = [
             Shape(id='rect1', type='rectangle', x=100, y=100, width=300, height=200, selectedBy=[]),
             Shape(id='circ1', type='circle', x=600, y=400, radius=100, selectedBy=['User2']),
+            Shape(id='text1', type='text', x=300, y=300, width=200, height=50, text='this is text', selectedBy=[]),
         ]
         session.add_all(shapes_data)
         await session.commit()
@@ -28,6 +29,7 @@ async def reset_shapes():
         shapes_data = [
             Shape(id='rect1', type='rectangle', x=100, y=100, width=300, height=200, selectedBy=[]),
             Shape(id='circ1', type='circle', x=600, y=400, radius=100, selectedBy=['User2']),
+            Shape(id='text1', type='text', x=300, y=300, width=200, height=50, text='this is text', selectedBy=[]),
         ]
         session.add_all(shapes_data)
         await session.commit()
