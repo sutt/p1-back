@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from sqlalchemy import delete
 from database import AsyncSessionLocal, engine
 from models import Base, Shape
 
@@ -18,6 +19,19 @@ async def seed_data():
         ]
         session.add_all(shapes_data)
         await session.commit()
+
+
+async def reset_shapes():
+    """Deletes all shapes and re-seeds them without touching other tables."""
+    async with AsyncSessionLocal() as session:
+        await session.execute(delete(Shape))
+        shapes_data = [
+            Shape(id='rect1', type='rectangle', x=100, y=100, width=300, height=200, selectedBy=[]),
+            Shape(id='circ1', type='circle', x=600, y=400, radius=100, selectedBy=['User2']),
+        ]
+        session.add_all(shapes_data)
+        await session.commit()
+
 
 async def main():
     logger.info("Seeding database...")

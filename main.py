@@ -15,7 +15,7 @@ from sqlalchemy import select
 import auth
 from database import engine, Base, get_db
 from models import Shape, User
-from seed import seed_data
+from seed import reset_shapes
 
 load_dotenv()
 
@@ -207,8 +207,8 @@ async def user_heartbeat(request: UserOnlineRequest):
 @app.post("/api/reset_data")
 # TODO: Protect this route. Requires authentication.
 async def reset_data():
-    """Resets the database to the initial seed data."""
-    await seed_data()
+    """Resets the shapes data to the initial seed data."""
+    await reset_shapes()
     return {"message": "Data reset successfully"}
 
 
