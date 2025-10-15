@@ -79,13 +79,14 @@ async def on_startup():
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if bool(int(os.getenv("SHAPES_DEBUG", 0))):
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 # Frontend should store the token (e.g., in localStorage) and send it in the
