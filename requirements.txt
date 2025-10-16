@@ -27,7 +27,4 @@ passlib==1.7.4
 bcrypt==3.2.2
 python-jose[cryptography]==3.3.0
 python-multipart
-
-# AI Feature Dependencies
-# MANUAL INTERVENTION: Run 'pip install -r requirements.txt' or 'uv pip install -r requirements.txt' to install
-openai>=1.0.0  # Official OpenAI SDK with async support for function calling
+openai>=1.0.0
