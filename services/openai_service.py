@@ -61,11 +61,14 @@ class OpenAIService:
             )
 
         self.client = AsyncOpenAI(api_key=api_key)
-        self.model = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
+        self.default_model = os.getenv("OPENAI_MODEL", "gpt-4o")
+        allowed_models_str = os.getenv("OPENAI_MODELS_ALLOWED", "gpt-4o,gpt-5")
+        self.allowed_models = [model.strip() for model in allowed_models_str.split(',')]
         self.tools = self._define_tools()
         self.system_prompt = self._get_system_prompt()
 
-        ai_debug_print(f"Initialized OpenAI service with model: {self.model}")
+        ai_debug_print(f"Initialized OpenAI service with default model: {self.default_model}")
+        ai_debug_print(f"Allowed models: {self.allowed_models}")
 
     def _define_tools(self) -> List[Dict]:
         """
@@ -274,7 +277,8 @@ Always provide friendly, concise responses explaining what you're doing."""
         self,
         user_message: str,
         canvas_state: Any,
-        username: str
+        username: str,
+        model: str
     ) -> Dict[str, Any]:
         """
         Process user command via OpenAI function calling.
@@ -306,12 +310,12 @@ Always provide friendly, concise responses explaining what you're doing."""
             {"role": "user", "content": user_message}
         ]
 
-        ai_debug_print(f"Calling OpenAI API with model: {self.model}")
+        ai_debug_print(f"Calling OpenAI API with model: {model}")
 
         # Call OpenAI with function calling
         # LIMITATION: No timeout handling, no retry logic
         response = await self.client.chat.completions.create(
-            model=self.model,
+            model=model,
             messages=messages,
             tools=self.tools,
             tool_choice="auto"
@@ -373,7 +377,8 @@ Always provide friendly, concise responses explaining what you're doing."""
         self,
         original_message: str,
         errors: List[str],
-        canvas_state: Any
+        canvas_state: Any,
+        model: str
     ) -> Dict[str, Any]:
         """
         Ask AI to revise commands after validation errors.
@@ -397,7 +402,7 @@ Always provide friendly, concise responses explaining what you're doing."""
         ]
 
         response = await self.client.chat.completions.create(
-            model=self.model,
+            model=model,
             messages=messages,
             tools=self.tools,
             tool_choice="auto"

@@ -81,6 +81,7 @@ class AIChatRequest(BaseModel):
     user: str = Field(..., description="Username of the requester")
     message: str = Field(..., max_length=500, description="User's natural language command")
     canvasState: AICanvasState
+    model: Optional[str] = Field(None, description="The AI model to use for the request")
 
 
 class AICommand(BaseModel):
@@ -224,13 +225,25 @@ async def ai_chat(
             detail=f"Failed to initialize AI services: {str(e)}"
         )
 
+    # Determine which model to use
+    model_to_use = openai_service.default_model
+    if request.model:
+        if request.model in openai_service.allowed_models:
+            model_to_use = request.model
+            ai_debug_print(f"Using client requested model: {model_to_use}")
+        else:
+            ai_debug_print(f"Requested model '{request.model}' not in allowed models {openai_service.allowed_models}. Falling back to default: {model_to_use}")
+    else:
+        ai_debug_print(f"No model requested by client. Using default model: {model_to_use}")
+
     try:
         # Call OpenAI
         ai_debug_print("Calling OpenAI API...")
         ai_response = await openai_service.process_command(
             user_message=request.message,
             canvas_state=request.canvasState,
-            username=request.user
+            username=request.user,
+            model=model_to_use
         )
 
         ai_debug_print(f"OpenAI returned {len(ai_response.get('commands', []))} commands")
@@ -256,7 +269,8 @@ async def ai_chat(
             ai_response = await openai_service.handle_validation_errors(
                 original_message=request.message,
                 errors=validation_errors,
-                canvas_state=request.canvasState
+                canvas_state=request.canvasState,
+                model=model_to_use
             )
 
             # Re-validate
