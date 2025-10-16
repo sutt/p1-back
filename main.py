@@ -17,6 +17,15 @@ from database import engine, Base, get_db
 from models import Shape, User
 from seed import reset_shapes
 
+# MANUAL INTERVENTION: AI routes are registered below
+# Ensure OPENAI_API_KEY is set in .env file before using AI features
+try:
+    from routes.ai import router as ai_router
+    AI_ROUTES_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: AI routes not available - {e}")
+    AI_ROUTES_AVAILABLE = False
+
 load_dotenv()
 
 
@@ -88,6 +97,14 @@ if bool(int(os.getenv("SHAPES_DEBUG", 0))):
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+# Register AI routes if available
+# MANUAL INTERVENTION: Ensure OPENAI_API_KEY is set in .env
+if AI_ROUTES_AVAILABLE:
+    app.include_router(ai_router)
+    logger.info("AI routes registered successfully")
+else:
+    logger.warning("AI routes not registered - check OpenAI service installation")
 
 
 # Frontend should store the token (e.g., in localStorage) and send it in the
