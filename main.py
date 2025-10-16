@@ -146,8 +146,14 @@ async def get_shapes(db: AsyncSession = Depends(get_db)):
 # TODO: Protect this route. Requires authentication.
 async def create_or_update_shapes(request: ShapesUpdateRequest, db: AsyncSession = Depends(get_db)):
     """Creates new shapes or updates existing ones from the provided list."""
+    # Validate that each shape has at most one user in selectedBy
     for s in request.data:
-        await db.merge(Shape(**s.dict()))
+        if len(s.selectedBy) > 1:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Shape {s.id} has multiple users in selectedBy. Only one user allowed per shape."
+            )
+        await db.merge(Shape(**s.model_dump()))
 
     await db.commit()
 
