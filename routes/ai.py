@@ -17,7 +17,6 @@ MANUAL INTERVENTIONS REQUIRED:
 - Add OPENAI_API_KEY to .env file (get from OpenAI dashboard)
 - Optionally set OPENAI_MODEL in .env (defaults to gpt-3.5-turbo)
 - Optionally set AI_RATE_LIMIT_PER_USER (defaults to 10 requests/min)
-- Consider enabling authentication by uncommenting Depends(get_current_user)
 - For production: Replace in-memory rate limiting with Redis
 """
 
@@ -31,8 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
 from database import get_db
-# Uncomment for authentication:
-# from auth import get_current_user, User
+from auth import get_current_user, User
 
 # AI_DEBUG environment variable controls debug output
 AI_DEBUG = os.getenv("AI_DEBUG", "false").lower() == "true"
@@ -159,8 +157,7 @@ async def check_rate_limit(username: str) -> bool:
 async def ai_chat(
     request: AIChatRequest,
     db: AsyncSession = Depends(get_db),
-    # MANUAL INTERVENTION: Uncomment for production authentication
-    # current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Process natural language commands for canvas manipulation.
@@ -172,7 +169,6 @@ async def ai_chat(
     4. Return commands for frontend execution
 
     LIMITATIONS:
-    - No authentication in PoC (uncomment current_user for production)
     - Single retry on validation failure (not iterative refinement)
     - No conversation history tracking
     - Commands are validated but not executed by backend
