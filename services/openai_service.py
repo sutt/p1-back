@@ -257,7 +257,8 @@ class OpenAIService:
 
 CANVAS DETAILS:
 - Coordinate system: Top-left is (0,0), X increases right, Y increases down
-- Typical viewport: 800x600 pixels
+- Typical viewport: 800x600 pixels at zoom=1.0
+- use canvasState.viewport.{x,y} state to understand where the user is currently viewing. This can can ran
 - Shape types: rectangle, circle, text
 
 CRITICAL RULES:
@@ -270,6 +271,10 @@ CRITICAL RULES:
 CANVAS STATE:
 You will receive the current canvas state including all shapes and their properties.
 Use findShapes to locate shapes when IDs are not explicitly mentioned.
+
+SPECIAL INSTRUCTIONS:
+When asked to create shapes use the canvasState.viewport.(x, y) to understand where the current user if looking and add the shapes to that area in what manner was requested.
+When asked to create non-trivial layouts (e.g. re-create a logo or mockup) lay those out 100 - 200 points away from exisiting shapes.
 
 Always provide friendly, concise responses explaining what you're doing."""
 
