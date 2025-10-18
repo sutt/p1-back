@@ -350,27 +350,48 @@ Always provide friendly, concise responses explaining what you're doing."""
                 # Fall back to text-only mode
                 screenshot = None
             else:
-                # Dump screenshot for debugging
+                # Dump original screenshot for debugging
                 dump_screenshot_to_filesystem(screenshot_dict, request_id)
 
-                # Add image to content
-                # LIMITATION: OpenAI expects specific format, this may need adjustment for other AI providers
+                # NEW [MARK-SCREENSHOT]: Generate marked screenshot with coordinate annotations
+                # LIMITATION [MARK-SCREENSHOT]: Requires Pillow installed, falls back gracefully if not available
+                from services.screenshot_utils import generate_marked_screenshot, dump_marked_screenshot
+                import os
+
+                coord_mode = os.getenv("AI_SCREENSHOT_COORD_MODE", "canvas")
+                canvas_state_dict = canvas_state.model_dump() if hasattr(canvas_state, 'model_dump') else (canvas_state.dict() if hasattr(canvas_state, 'dict') else canvas_state)
+
+                marked_result = generate_marked_screenshot(
+                    screenshot_dict,
+                    canvas_state_dict,
+                    coord_mode
+                )
+
+                # Dump marked screenshot for debugging
+                dump_marked_screenshot(marked_result["marked_image_base64"], request_id, "marked")
+
+                # Add MARKED image to content (not original)
+                # LIMITATION [MARK-SCREENSHOT]: Always uses PNG format for marked images
+                # PNG is better for graphics/text but slightly larger than JPEG
                 user_content.append({
                     "type": "image_url",
                     "image_url": {
-                        "url": f"data:image/{screenshot_dict['format']};base64,{screenshot_dict['data']}"
+                        "url": f"data:image/png;base64,{marked_result['marked_image_base64']}"
                     }
                 })
 
-                # Build and add geographical context
+                # Build and add geographical + coordinate context
                 geo_context = build_geographical_context(screenshot_dict)
-                text_content = f"{geo_context}\n\nUser message: {user_message}"
+                coord_context = marked_result["coordinate_context"]
+
+                # LIMITATION [MARK-SCREENSHOT]: Context can be verbose. May need to tune for token limits.
+                text_content = f"{geo_context}\n\n{coord_context}\n\nUser message: {user_message}"
                 user_content.append({
                     "type": "text",
                     "text": text_content
                 })
 
-                ai_screenshot_debug_print("Screenshot processed and added to request")
+                ai_screenshot_debug_print("Screenshot marked and added to request")
 
         # If no screenshot or screenshot validation failed, use text-only
         if not screenshot:
@@ -495,17 +516,32 @@ Always provide friendly, concise responses explaining what you're doing."""
 
             screenshot_dict = screenshot.model_dump() if hasattr(screenshot, 'model_dump') else (screenshot.dict() if hasattr(screenshot, 'dict') else screenshot)
 
-            # Add image
+            # NEW [MARK-SCREENSHOT]: Use marked screenshot in retry as well
+            # LIMITATION [MARK-SCREENSHOT]: Re-generates markings (could cache from original request)
+            from services.screenshot_utils import generate_marked_screenshot
+            import os
+
+            coord_mode = os.getenv("AI_SCREENSHOT_COORD_MODE", "canvas")
+            canvas_state_dict = canvas_state.model_dump() if hasattr(canvas_state, 'model_dump') else (canvas_state.dict() if hasattr(canvas_state, 'dict') else canvas_state)
+
+            marked_result = generate_marked_screenshot(
+                screenshot_dict,
+                canvas_state_dict,
+                coord_mode
+            )
+
+            # Add marked image
             user_content.append({
                 "type": "image_url",
                 "image_url": {
-                    "url": f"data:image/{screenshot_dict['format']};base64,{screenshot_dict['data']}"
+                    "url": f"data:image/png;base64,{marked_result['marked_image_base64']}"
                 }
             })
 
-            # Add geographical context
+            # Add geographical + coordinate context
             geo_context = build_geographical_context(screenshot_dict)
-            text_content = f"{geo_context}\n\nUser message: {original_message}"
+            coord_context = marked_result["coordinate_context"]
+            text_content = f"{geo_context}\n\n{coord_context}\n\nUser message: {original_message}"
             user_content.append({
                 "type": "text",
                 "text": text_content

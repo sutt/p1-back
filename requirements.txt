@@ -28,3 +28,4 @@ bcrypt==3.2.2
 python-jose[cryptography]==3.3.0
 python-multipart
 openai>=1.0.0
+pillow>=10.0.0

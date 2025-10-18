@@ -288,3 +288,101 @@ def build_geographical_context(screenshot: Dict[str, Any]) -> str:
     ai_screenshot_debug_print(f"Geographical context: {context}")
 
     return context
+
+
+def generate_marked_screenshot(
+    screenshot: Dict[str, Any],
+    canvas_state: Dict[str, Any],
+    coord_mode: str = "canvas"
+) -> Dict[str, Any]:
+    """
+    Generate marked version of screenshot with coordinate annotations.
+
+    MANUAL-INTERVENTION [MARK-SCREENSHOT]: Requires Pillow installed.
+    Run: pip install pillow>=10.0.0
+
+    LIMITATION [MARK-SCREENSHOT]: Basic implementation creates one marked image.
+    Plan called for separate AI and debug versions, but this creates one version
+    for simplicity.
+
+    Args:
+        screenshot: Original screenshot data dict
+        canvas_state: Canvas state dict with viewport info
+        coord_mode: "canvas" or "latlng" (only canvas implemented)
+
+    Returns:
+        Dictionary with:
+            - marked_image_base64: Marked image for AI (PNG format)
+            - coordinate_context: Text description of coordinate system
+    """
+    ai_screenshot_debug_print("Generating marked screenshot...")
+
+    try:
+        from services.screenshot_markers import ScreenshotMarker
+
+        marker = ScreenshotMarker()
+        result = marker.mark_screenshot(screenshot, canvas_state, coord_mode)
+
+        ai_screenshot_debug_print("Marked screenshot generated successfully")
+
+        return result
+
+    except ImportError as e:
+        # LIMITATION [MARK-SCREENSHOT]: If Pillow not installed, fall back to unmarked
+        ai_screenshot_debug_print(f"Failed to import screenshot_markers (Pillow may not be installed): {e}")
+        ai_screenshot_debug_print("Falling back to unmarked screenshot")
+
+        # Return original screenshot with basic context
+        return {
+            "marked_image_base64": screenshot["data"],
+            "coordinate_context": "WARNING: Screenshot marking unavailable (Pillow not installed). Using unmarked image."
+        }
+
+    except Exception as e:
+        # LIMITATION [MARK-SCREENSHOT]: If marking fails, fall back gracefully
+        ai_screenshot_debug_print(f"Failed to generate marked screenshot: {e}")
+        ai_screenshot_debug_print("Falling back to unmarked screenshot")
+
+        # Return original screenshot
+        return {
+            "marked_image_base64": screenshot["data"],
+            "coordinate_context": f"WARNING: Screenshot marking failed ({str(e)}). Using unmarked image."
+        }
+
+
+def dump_marked_screenshot(base64_data: str, request_id: str, purpose: str = "marked"):
+    """
+    Dump marked screenshot to filesystem for debugging.
+
+    MANUAL-INTERVENTION [MARK-SCREENSHOT]: Debug files in ./debug_screenshots/
+    must be manually cleaned up. No automatic cleanup is performed.
+
+    Args:
+        base64_data: Base64 encoded marked image
+        request_id: Request identifier
+        purpose: Purpose label for filename (e.g., "marked", "debug")
+    """
+    if not DEBUG_SCREENSHOT:
+        return
+
+    ai_screenshot_debug_print(f"Dumping {purpose} screenshot...")
+
+    # Create debug directory if it doesn't exist
+    os.makedirs(DEBUG_DIR, exist_ok=True)
+
+    # Generate filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"screenshot_{purpose}_{timestamp}_{request_id}.png"
+    filepath = os.path.join(DEBUG_DIR, filename)
+
+    try:
+        # Decode base64 and write to file
+        image_data = base64.b64decode(base64_data)
+        with open(filepath, "wb") as f:
+            f.write(image_data)
+
+        ai_screenshot_debug_print(f"{purpose.capitalize()} screenshot dumped to: {filepath}")
+        ai_screenshot_debug_print(f"File size: {len(image_data) / 1024:.2f}KB")
+
+    except Exception as e:
+        ai_screenshot_debug_print(f"Failed to dump {purpose} screenshot: {str(e)}")
