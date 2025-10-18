@@ -97,11 +97,17 @@ class ScreenshotMarker:
         image = self._decode_image(screenshot_data["data"])
         ai_marking_debug_print(f"Decoded image: {image.size[0]}x{image.size[1]}")
 
-        # Create translator
+        # Create translator with actual screenshot size
+        # This allows scaling from canvas coordinates to actual screenshot pixels
         translator = CoordinateTranslator(
             screenshot_data["viewportInfo"],
-            canvas_state
+            canvas_state,
+            actual_screenshot_size=(image.size[0], image.size[1])
         )
+
+        ai_marking_debug_print(f"Canvas coords: {translator.canvas_width}x{translator.canvas_height}")
+        ai_marking_debug_print(f"Screenshot pixels: {translator.screen_width}x{translator.screen_height}")
+        ai_marking_debug_print(f"Scale factors: x={translator.canvas_to_screen_scale_x:.4f}, y={translator.canvas_to_screen_scale_y:.4f}")
 
         # Create marked version
         # LIMITATION [MARK-SCREENSHOT]: Only canvas mode implemented for basic PoC

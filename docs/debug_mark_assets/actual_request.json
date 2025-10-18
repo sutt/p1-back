@@ -1,0 +1,82 @@
+{
+    "user": "abc",
+    "message": "add a circle over the boston common",
+    "canvasState": {
+        "shapes": [
+            {
+                "x": 600,
+                "width": null,
+                "radius": 100,
+                "selectedBy": [
+                    "User2"
+                ],
+                "type": "circle",
+                "id": "circ1",
+                "y": 400,
+                "height": null,
+                "text": null
+            },
+            {
+                "x": -2,
+                "width": 231,
+                "radius": null,
+                "selectedBy": [],
+                "type": "rectangle",
+                "id": "shape_1760807547456",
+                "y": 4,
+                "height": 252,
+                "text": null
+            },
+            {
+                "x": 1047,
+                "width": 232,
+                "radius": null,
+                "selectedBy": [],
+                "type": "rectangle",
+                "id": "rect1",
+                "y": 1053,
+                "height": 203,
+                "text": null
+            },
+            {
+                "x": 501,
+                "width": 200,
+                "radius": null,
+                "selectedBy": [],
+                "type": "text",
+                "id": "text1",
+                "y": 373,
+                "height": 50,
+                "text": "this is text"
+            }
+        ],
+        "viewport": {
+            "zoom": 1,
+            "pan": {
+                "x": 0,
+                "y": 0
+            }
+        }
+    },
+    "model": "gpt-4o",
+    "screenshot": {
+        "data": "redacted",
+        "format": "jpeg",
+        "capturedAt": "2025-10-18T17:13:30.957Z",
+        "viewportInfo": {
+            "width": 1277,
+            "height": 1322,
+            "mapCenter": [
+                42.35212399526381,
+                -71.0801725062002
+            ],
+            "mapZoom": 13,
+            "mapBounds": {
+                "north": 42.391987967575176,
+                "south": 42.312234723234894,
+                "east": -71.02535530474773,
+                "west": -71.1349897076545
+            }
+        }
+    }
+}

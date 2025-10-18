@@ -33,13 +33,15 @@ class CoordinateTranslator:
     # Earth's radius in meters (Web Mercator)
     EARTH_RADIUS = 6378137
 
-    def __init__(self, viewport_info: Dict[str, Any], canvas_state: Dict[str, Any]):
+    def __init__(self, viewport_info: Dict[str, Any], canvas_state: Dict[str, Any], actual_screenshot_size: Optional[Tuple[int, int]] = None):
         """
         Initialize coordinate translator.
 
         Args:
             viewport_info: Map viewport information from screenshot
             canvas_state: Canvas state with viewport zoom/pan
+            actual_screenshot_size: Actual pixel dimensions of screenshot (width, height).
+                If provided, will scale from canvas coordinates to actual screenshot pixels.
 
         LIMITATION [MARK-SCREENSHOT]: Assumes viewport_info and canvas_state
         have the expected structure. No validation performed for performance.
@@ -56,9 +58,22 @@ class CoordinateTranslator:
         self.canvas_zoom = self.canvas_viewport["zoom"]
         self.canvas_pan = self.canvas_viewport["pan"]
 
-        # Screenshot dimensions
-        self.screen_width = viewport_info["width"]
-        self.screen_height = viewport_info["height"]
+        # Canvas dimensions (from viewport info - this is the canvas coordinate space)
+        self.canvas_width = viewport_info["width"]
+        self.canvas_height = viewport_info["height"]
+
+        # Actual screenshot dimensions (may differ from canvas dimensions)
+        if actual_screenshot_size:
+            self.screen_width, self.screen_height = actual_screenshot_size
+            # Calculate scaling factors from canvas coords to screen pixels
+            self.canvas_to_screen_scale_x = self.screen_width / self.canvas_width
+            self.canvas_to_screen_scale_y = self.screen_height / self.canvas_height
+        else:
+            # No scaling - assume canvas coords == screen pixels
+            self.screen_width = self.canvas_width
+            self.screen_height = self.canvas_height
+            self.canvas_to_screen_scale_x = 1.0
+            self.canvas_to_screen_scale_y = 1.0
 
         # Precalculate pixels per meter for this zoom level
         # LIMITATION [MARK-SCREENSHOT]: This calculation assumes 256x256 tiles at zoom 0
@@ -194,14 +209,15 @@ class CoordinateTranslator:
         Returns:
             (canvas_x, canvas_y): Canvas integer coordinates
         """
-        # LIMITATION [MARK-SCREENSHOT]: This is a simplified calculation
-        # Real-world canvas transformations may be more complex
-        # For now, we assume screenshot space ≈ canvas space adjusted by viewport
+        # Step 1: Scale from screenshot pixels to canvas coordinate space
+        # (inverse of the canvas_to_screen scaling)
+        canvas_space_x = screen_x / self.canvas_to_screen_scale_x
+        canvas_space_y = screen_y / self.canvas_to_screen_scale_y
 
-        # Account for canvas zoom and pan
+        # Step 2: Account for canvas zoom and pan
         # Reverse the viewport transformation
-        canvas_x = int((screen_x / self.canvas_zoom) - self.canvas_pan["x"])
-        canvas_y = int((screen_y / self.canvas_zoom) - self.canvas_pan["y"])
+        canvas_x = int((canvas_space_x / self.canvas_zoom) - self.canvas_pan["x"])
+        canvas_y = int((canvas_space_y / self.canvas_zoom) - self.canvas_pan["y"])
 
         return (canvas_x, canvas_y)
 
@@ -216,9 +232,13 @@ class CoordinateTranslator:
         Returns:
             (screen_x, screen_y): Screenshot pixel coordinates
         """
-        # Apply canvas viewport transformation
-        screen_x = int((canvas_x + self.canvas_pan["x"]) * self.canvas_zoom)
-        screen_y = int((canvas_y + self.canvas_pan["y"]) * self.canvas_zoom)
+        # Step 1: Apply canvas viewport transformation (zoom/pan)
+        canvas_space_x = (canvas_x + self.canvas_pan["x"]) * self.canvas_zoom
+        canvas_space_y = (canvas_y + self.canvas_pan["y"]) * self.canvas_zoom
+
+        # Step 2: Scale from canvas coordinate space to actual screenshot pixels
+        screen_x = int(canvas_space_x * self.canvas_to_screen_scale_x)
+        screen_y = int(canvas_space_y * self.canvas_to_screen_scale_y)
 
         return (screen_x, screen_y)
 
