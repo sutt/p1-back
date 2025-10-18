@@ -97,16 +97,22 @@ class ScreenshotMarker:
         image = self._decode_image(screenshot_data["data"])
         ai_marking_debug_print(f"Decoded image: {image.size[0]}x{image.size[1]}")
 
-        # Create translator with actual screenshot size
+        # Determine Y-offset (if client crops menu bar from top)
+        # Check for offset hint in screenshot data or environment
+        canvas_offset_y = int(os.getenv("AI_SCREENSHOT_OFFSET_Y", "0"))
+
+        # Create translator with actual screenshot size and Y-offset
         # This allows scaling from canvas coordinates to actual screenshot pixels
         translator = CoordinateTranslator(
             screenshot_data["viewportInfo"],
             canvas_state,
-            actual_screenshot_size=(image.size[0], image.size[1])
+            actual_screenshot_size=(image.size[0], image.size[1]),
+            canvas_offset_y=canvas_offset_y
         )
 
         ai_marking_debug_print(f"Canvas coords: {translator.canvas_width}x{translator.canvas_height}")
         ai_marking_debug_print(f"Screenshot pixels: {translator.screen_width}x{translator.screen_height}")
+        ai_marking_debug_print(f"Canvas Y-offset: {canvas_offset_y}px")
         ai_marking_debug_print(f"Scale factors: x={translator.canvas_to_screen_scale_x:.4f}, y={translator.canvas_to_screen_scale_y:.4f}")
 
         # Create marked version

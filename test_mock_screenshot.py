@@ -228,11 +228,15 @@ def main():
     parser = argparse.ArgumentParser(description='Process mock screenshot with markings')
     parser.add_argument('--no-shapes', action='store_true', help='Don\'t overlay shapes from request')
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose debug output')
+    parser.add_argument('--offset-y', type=int, default=62, help='Y-offset in canvas coords (default: 62px for menu bar)')
     args = parser.parse_args()
 
     # Enable debug output if requested
     if args.verbose:
         os.environ["AI_DEBUG_SCREENSHOT"] = "true"
+
+    # Set Y-offset for coordinate translation
+    os.environ["AI_SCREENSHOT_OFFSET_Y"] = str(args.offset_y)
 
     print("="*60)
     print("MOCK SCREENSHOT MARKING TEST")
@@ -303,11 +307,13 @@ def main():
             marked_bytes = base64.b64decode(result['marked_image_base64'])
             marked_image = Image.open(io.BytesIO(marked_bytes)).convert("RGBA")
 
-            # Create translator with actual screenshot size
+            # Create translator with actual screenshot size and Y-offset
+            canvas_offset_y = int(os.environ.get("AI_SCREENSHOT_OFFSET_Y", "0"))
             translator = CoordinateTranslator(
                 viewport_info,
                 canvas_state,
-                actual_screenshot_size=(marked_image.size[0], marked_image.size[1])
+                actual_screenshot_size=(marked_image.size[0], marked_image.size[1]),
+                canvas_offset_y=canvas_offset_y
             )
 
             # Draw shapes
