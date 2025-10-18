@@ -22,7 +22,7 @@ MANUAL INTERVENTIONS REQUIRED:
 
 import os
 import json
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from openai import AsyncOpenAI
 
 # AI_DEBUG environment variable controls debug output
@@ -283,7 +283,8 @@ Always provide friendly, concise responses explaining what you're doing."""
         user_message: str,
         canvas_state: Any,
         username: str,
-        model: str
+        model: str,
+        screenshot: Optional[Any] = None
     ) -> Dict[str, Any]:
         """
         Process user command via OpenAI function calling.
@@ -295,6 +296,8 @@ Always provide friendly, concise responses explaining what you're doing."""
             user_message: User's natural language command
             canvas_state: Current canvas state from frontend
             username: Current username
+            model: AI model to use
+            screenshot: Optional screenshot data with map context
 
         Returns:
             Dictionary with:
@@ -302,8 +305,21 @@ Always provide friendly, concise responses explaining what you're doing."""
                 - commands: List of structured commands
                 - reasoning: Optional explanation
         """
+        from services.screenshot_utils import (
+            validate_screenshot,
+            dump_screenshot_to_filesystem,
+            dump_full_prompt,
+            build_geographical_context,
+            ai_screenshot_debug_print
+        )
+        import uuid
+
         ai_debug_print(f"Processing command for user: {username}")
         ai_debug_print(f"User message: {user_message}")
+
+        # Generate request ID for debugging
+        request_id = str(uuid.uuid4())[:8]
+        ai_screenshot_debug_print(f"Request ID: {request_id}")
 
         # Build messages array
         messages = [
@@ -311,9 +327,63 @@ Always provide friendly, concise responses explaining what you're doing."""
             {
                 "role": "system",
                 "content": f"Current user: {username}\n\nCanvas state:\n{self._format_canvas_state(canvas_state)}"
-            },
-            {"role": "user", "content": user_message}
+            }
         ]
+
+        # Build user message content
+        user_content = []
+
+        # If screenshot is provided, process it
+        # LIMITATION: Basic PoC - no retry on screenshot processing failure
+        if screenshot:
+            ai_screenshot_debug_print("Screenshot provided, processing...")
+
+            # Convert Pydantic model to dict if needed
+            # LIMITATION: Uses Pydantic v2 model_dump(), may need adjustment for v1
+            screenshot_dict = screenshot.model_dump() if hasattr(screenshot, 'model_dump') else (screenshot.dict() if hasattr(screenshot, 'dict') else screenshot)
+
+            # Validate screenshot
+            is_valid, error_msg = validate_screenshot(screenshot_dict)
+            if not is_valid:
+                ai_screenshot_debug_print(f"Screenshot validation failed: {error_msg}")
+                ai_debug_print(f"Screenshot validation failed: {error_msg}. Falling back to text-only mode.")
+                # Fall back to text-only mode
+                screenshot = None
+            else:
+                # Dump screenshot for debugging
+                dump_screenshot_to_filesystem(screenshot_dict, request_id)
+
+                # Add image to content
+                # LIMITATION: OpenAI expects specific format, this may need adjustment for other AI providers
+                user_content.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/{screenshot_dict['format']};base64,{screenshot_dict['data']}"
+                    }
+                })
+
+                # Build and add geographical context
+                geo_context = build_geographical_context(screenshot_dict)
+                text_content = f"{geo_context}\n\nUser message: {user_message}"
+                user_content.append({
+                    "type": "text",
+                    "text": text_content
+                })
+
+                ai_screenshot_debug_print("Screenshot processed and added to request")
+
+        # If no screenshot or screenshot validation failed, use text-only
+        if not screenshot:
+            user_content = user_message
+
+        # Add user message to messages
+        messages.append({
+            "role": "user",
+            "content": user_content
+        })
+
+        # Dump full prompt for debugging
+        dump_full_prompt(messages, request_id)
 
         ai_debug_print(f"Calling OpenAI API with model: {model}")
 
@@ -383,14 +453,28 @@ Always provide friendly, concise responses explaining what you're doing."""
         original_message: str,
         errors: List[str],
         canvas_state: Any,
-        model: str
+        model: str,
+        screenshot: Optional[Any] = None
     ) -> Dict[str, Any]:
         """
         Ask AI to revise commands after validation errors.
 
         LIMITATION: Only retries once, not iterative refinement
         TODO: Implement multi-turn refinement with error feedback loop
+
+        Args:
+            original_message: User's original message
+            errors: List of validation error messages
+            canvas_state: Current canvas state
+            model: AI model to use
+            screenshot: Optional screenshot data (if provided in original request)
         """
+        from services.screenshot_utils import (
+            validate_screenshot,
+            build_geographical_context,
+            ai_screenshot_debug_print
+        )
+
         ai_debug_print("Handling validation errors, asking AI to revise")
         ai_debug_print(f"Errors: {errors}")
 
@@ -398,13 +482,42 @@ Always provide friendly, concise responses explaining what you're doing."""
 
         messages = [
             {"role": "system", "content": self.system_prompt},
-            {"role": "system", "content": f"Canvas state:\n{self._format_canvas_state(canvas_state)}"},
-            {"role": "user", "content": original_message},
-            {
-                "role": "system",
-                "content": f"The following errors occurred:\n{error_context}\n\nPlease suggest alternative commands that avoid these issues."
-            }
+            {"role": "system", "content": f"Canvas state:\n{self._format_canvas_state(canvas_state)}"}
         ]
+
+        # Build user content (with or without screenshot)
+        user_content = []
+
+        # If screenshot was provided in original request, include it in retry
+        # LIMITATION: Screenshot context is included but not re-validated (assumes already validated)
+        if screenshot:
+            ai_screenshot_debug_print("Including screenshot in validation retry...")
+
+            screenshot_dict = screenshot.model_dump() if hasattr(screenshot, 'model_dump') else (screenshot.dict() if hasattr(screenshot, 'dict') else screenshot)
+
+            # Add image
+            user_content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:image/{screenshot_dict['format']};base64,{screenshot_dict['data']}"
+                }
+            })
+
+            # Add geographical context
+            geo_context = build_geographical_context(screenshot_dict)
+            text_content = f"{geo_context}\n\nUser message: {original_message}"
+            user_content.append({
+                "type": "text",
+                "text": text_content
+            })
+        else:
+            user_content = original_message
+
+        messages.append({"role": "user", "content": user_content})
+        messages.append({
+            "role": "system",
+            "content": f"The following errors occurred:\n{error_context}\n\nPlease suggest alternative commands that avoid these issues."
+        })
 
         response = await self.client.chat.completions.create(
             model=model,

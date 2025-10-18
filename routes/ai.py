@@ -74,12 +74,45 @@ class AICanvasState(BaseModel):
     viewport: CanvasViewport
 
 
+class MapBounds(BaseModel):
+    """Geographical bounds of the visible map area."""
+    north: float = Field(..., description="Northern latitude boundary")
+    south: float = Field(..., description="Southern latitude boundary")
+    east: float = Field(..., description="Eastern longitude boundary")
+    west: float = Field(..., description="Western longitude boundary")
+
+
+class ViewportInfo(BaseModel):
+    """
+    Map viewport information for geographical context.
+    LIMITATION: Assumes coordinates are in standard lat/lng format.
+    """
+    width: int = Field(..., description="Viewport width in pixels")
+    height: int = Field(..., description="Viewport height in pixels")
+    mapCenter: List[float] = Field(..., description="[latitude, longitude] of map center")
+    mapZoom: float = Field(..., description="Current zoom level (0-22, higher = more zoomed in)")
+    mapBounds: Optional[MapBounds] = Field(None, description="Geographical bounds of visible area")
+
+
+class ScreenshotData(BaseModel):
+    """
+    Screenshot data from frontend.
+    LIMITATION: Base64 encoding increases payload size by ~33%.
+    TODO: Consider binary upload for large images.
+    """
+    data: str = Field(..., description="Base64 encoded image (PNG or JPEG)")
+    format: str = Field(..., description="Image format: 'png' or 'jpeg'")
+    capturedAt: str = Field(..., description="ISO timestamp when screenshot was captured")
+    viewportInfo: ViewportInfo = Field(..., description="Map viewport context")
+
+
 class AIChatRequest(BaseModel):
     """Request model for AI chat endpoint."""
     user: str = Field(..., description="Username of the requester")
     message: str = Field(..., max_length=500, description="User's natural language command")
     canvasState: AICanvasState
     model: Optional[str] = Field(None, description="The AI model to use for the request")
+    screenshot: Optional[ScreenshotData] = Field(None, description="Optional screenshot with map context")
 
 
 class AICommand(BaseModel):
@@ -235,11 +268,16 @@ async def ai_chat(
     try:
         # Call OpenAI
         ai_debug_print("Calling OpenAI API...")
+        if request.screenshot:
+            ai_debug_print(f"Screenshot included: {request.screenshot.format}, captured at {request.screenshot.capturedAt}")
+            ai_debug_print(f"Map center: {request.screenshot.viewportInfo.mapCenter}, zoom: {request.screenshot.viewportInfo.mapZoom}")
+
         ai_response = await openai_service.process_command(
             user_message=request.message,
             canvas_state=request.canvasState,
             username=request.user,
-            model=model_to_use
+            model=model_to_use,
+            screenshot=request.screenshot  # Pass screenshot to service
         )
 
         ai_debug_print(f"OpenAI returned {len(ai_response.get('commands', []))} commands")
@@ -266,7 +304,8 @@ async def ai_chat(
                 original_message=request.message,
                 errors=validation_errors,
                 canvas_state=request.canvasState,
-                model=model_to_use
+                model=model_to_use,
+                screenshot=request.screenshot  # Pass screenshot for retry
             )
 
             # Re-validate
