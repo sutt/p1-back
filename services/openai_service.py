@@ -410,12 +410,19 @@ Always provide friendly, concise responses explaining what you're doing."""
 
         # Call OpenAI with function calling
         # LIMITATION: No timeout handling, no retry logic
-        response = await self.client.chat.completions.create(
-            model=model,
-            messages=messages,
-            tools=self.tools,
-            tool_choice="auto"
-        )
+        # Add reasoning_effort for GPT-5 models
+        create_params = {
+            "model": model,
+            "messages": messages,
+            "tools": self.tools,
+            "tool_choice": "auto"
+        }
+
+        if "gpt-5" in model.lower():
+            create_params["reasoning_effort"] = "high"
+            ai_debug_print("Using high reasoning effort for GPT-5")
+
+        response = await self.client.chat.completions.create(**create_params)
 
         # Parse response
         assistant_message = response.choices[0].message
@@ -555,12 +562,19 @@ Always provide friendly, concise responses explaining what you're doing."""
             "content": f"The following errors occurred:\n{error_context}\n\nPlease suggest alternative commands that avoid these issues."
         })
 
-        response = await self.client.chat.completions.create(
-            model=model,
-            messages=messages,
-            tools=self.tools,
-            tool_choice="auto"
-        )
+        # Add reasoning_effort for GPT-5 models
+        create_params = {
+            "model": model,
+            "messages": messages,
+            "tools": self.tools,
+            "tool_choice": "auto"
+        }
+
+        if "gpt-5" in model.lower():
+            create_params["reasoning_effort"] = "high"
+            ai_debug_print("Using high reasoning effort for GPT-5 (validation retry)")
+
+        response = await self.client.chat.completions.create(**create_params)
 
         # Parse revised response (similar to process_command)
         assistant_message = response.choices[0].message
