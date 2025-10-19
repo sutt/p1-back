@@ -54,15 +54,15 @@ class ScreenshotMarker:
         self.text_bg_color = (0, 0, 0, 180)  # Semi-transparent black
 
         # Grid spacing
-        self.canvas_grid_spacing = int(os.getenv("AI_SCREENSHOT_GRID_SPACING", "100"))
+        self.canvas_grid_spacing = int(os.getenv("AI_SCREENSHOT_GRID_SPACING", "200"))
 
         # Font (use PIL default)
         # LIMITATION [MARK-SCREENSHOT]: Uses default PIL font which is small
         # Production should use a proper font file
         try:
             # Try to load a better font if available
-            self.font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12)
-            self.font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
+            self.font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 54)  # 36 * 1.5
+            self.font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 48)  # 32 * 1.5
         except:
             # Fallback to default
             self.font = ImageFont.load_default()
